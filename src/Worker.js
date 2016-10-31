@@ -123,20 +123,17 @@ function run(data) {
           return;
         }
         source = source.toString();
-        try {
-          var jscodeshift = prepareJscodeshift(options);
-          var out = transform(
-            {
-              path: file,
-              source: source,
-            },
-            {
-              j: jscodeshift,
-              jscodeshift: jscodeshift,
-              stats: options.dry ? stats : empty
-            },
-            options
+
+        const handleError = (err) => {
+          updateStatus(
+            'error',
+            file,
+            'Transformation error\n' + trimStackTrace(err.stack)
           );
+          callback();
+        };
+
+        const handleResults = (out) => {
           if (!out || out === source) {
             updateStatus(out ? 'nochange' : 'skip', file);
             callback();
@@ -158,13 +155,35 @@ function run(data) {
             updateStatus('ok', file);
             callback();
           }
-        } catch(err) {
-          updateStatus(
-            'error',
-            file,
-            'Transformation error\n' + trimStackTrace(err.stack)
+        };
+
+        try {
+          var jscodeshift = prepareJscodeshift(options);
+          var out = transform(
+            {
+              path: file,
+              source: source,
+            },
+            {
+              j: jscodeshift,
+              jscodeshift: jscodeshift,
+              stats: options.dry ? stats : empty
+            },
+            options
           );
-          callback();
+
+          if (out.then) {
+            // Handle a promise
+            out.then((out) => {
+              handleResults(out);
+            }).catch((err) => {
+              handleError(err);
+            });
+          } else {
+            handleResults(out);
+          }
+        } catch(err) {
+          handleError(err);
         }
       });
     },

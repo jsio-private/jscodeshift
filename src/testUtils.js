@@ -57,7 +57,7 @@ function runTest(dirName, transformName, options, testFilePrefix) {
     jscodeshift = jscodeshift.withParser(module.parser);
   }
 
-  const output = transform(
+  let output = transform(
     {path: inputPath, source},
     {
       jscodeshift,
@@ -65,7 +65,23 @@ function runTest(dirName, transformName, options, testFilePrefix) {
     },
     options || {}
   );
-  expect((output || '').trim()).toEqual(expectedOutput.trim());
+  output = output || '';
+
+  const done = (output) => {
+    expect(output.trim()).toEqual(expectedOutput.trim());
+  };
+
+  if (output.then) {
+    // Handle promises
+    return output.then(output => {
+      done(output);
+    });
+  } else {
+    done(output);
+  }
+
+  // Return something
+  return;
 }
 exports.runTest = runTest;
 
@@ -79,7 +95,7 @@ function defineTest(dirName, transformName, options, testFilePrefix) {
     : 'transforms correctly';
   describe(transformName, () => {
     it(testName, () => {
-      runTest(dirName, transformName, options, testFilePrefix);
+      return runTest(dirName, transformName, options, testFilePrefix);
     });
   });
 }
